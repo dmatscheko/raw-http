@@ -210,7 +210,7 @@ class RawHTTPClient:
         Returns:
             List[bytes]: The updated list of header lines.
         """
-        host_header = f"Host: {host}:{port}".encode('utf-8')
+        host_header = f"Host: {host}".encode('utf-8') if port in (80, 443) else f"Host: {host}:{port}".encode('utf-8')
         for i, line in enumerate(headers_array):
             if line.lower().startswith(b"host:"):
                 headers_array[i] = host_header
