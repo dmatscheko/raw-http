@@ -6,7 +6,7 @@ import gzip
 from socket import timeout as SocketTimeout
 from cryptography.hazmat.primitives.serialization import pkcs12, Encoding, PrivateFormat, NoEncryption  # pip install cryptography
 import dns.resolver  # pip install dnspython
-from typing import Optional, Tuple, List, Union
+from typing import Tuple, List, Union
 import logging
 from dataclasses import dataclass
 from contextlib import contextmanager
@@ -15,14 +15,19 @@ import os
 
 logger = logging.getLogger(__name__)
 
+# Constants
+CHUNK_SIZE = 4096
+DEFAULT_TIMEOUT = 10.0
+SHORT_TIMEOUT = 1.0
+
 @dataclass
 class ProxyConfig:
     """Configuration for proxy settings."""
     host: str
     port: int
     type: str  # 'http' or 'socks5'
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: Union[str, None] = None
+    password: Union[str, None] = None
 
 class RawHTTPClient:
     """A client for sending raw HTTP/HTTPS requests."""
@@ -58,18 +63,18 @@ class RawHTTPClient:
         host: str,
         port: int,
         request: Union[str, bytes],
-        path: Optional[str] = None,
+        path: Union[str, None] = None,
         update_host_header: bool = True,
         update_content_length_header: bool = True,
-        use_tls: Optional[bool] = None,
-        p12_file: Optional[str] = None,
-        p12_password: Optional[str] = None,
-        local_ip: Optional[str] = None,
-        dns_server: Optional[str] = None,
-        timeout: Optional[float] = 10.0,
-        proxy: Optional[ProxyConfig] = None,
+        use_tls: Union[bool, None] = None,
+        p12_file: Union[str, None] = None,
+        p12_password: Union[str, None] = None,
+        local_ip: Union[str, None] = None,
+        dns_server: Union[str, None] = None,
+        timeout: Union[float, None] = 10.0,
+        proxy: Union[ProxyConfig, None] = None,
         verify_ssl: bool = True
-    ) -> Tuple[Optional[bytes], Optional[bytes]]:
+    ) -> Tuple[Union[bytes, None], Union[bytes, None]]:
         """
         Send a raw HTTP/HTTPS request.
 
@@ -84,20 +89,20 @@ class RawHTTPClient:
             host (str): The target host.
             port (int): The target port.
             request (Union[str, bytes]): The raw HTTP request.
-            path (Optional[str]): The path to update in the request. If None, the original path in the request is kept.
+            path (Union[str, None]): The path to update in the request. If None, the original path in the request is kept.
             update_host_header (bool): Whether to update the Host header.
             update_content_length_header (bool): Whether to update the Content-Length header.
-            use_tls (Optional[bool]): Whether to use TLS. If None, it's auto-detected based on the port.
-            p12_file (Optional[str]): Path to the .p12 file for client certificate authentication.
-            p12_password (Optional[str]): Password for the .p12 file.
-            local_ip (Optional[str]): The local IP to bind to.
-            dns_server (Optional[str]): The DNS server to use for hostname resolution.
-            timeout (Optional[float]): The timeout for the connection in seconds.
-            proxy (Optional[ProxyConfig]): The proxy configuration to use.
+            use_tls (Union[bool, None]): Whether to use TLS. If None, it's auto-detected based on the port.
+            p12_file (Union[str, None]): Path to the .p12 file for client certificate authentication.
+            p12_password (Union[str, None]): Password for the .p12 file.
+            local_ip (Union[str, None]): The local IP to bind to.
+            dns_server (Union[str, None]): The DNS server to use for hostname resolution.
+            timeout (Union[float, None]): The timeout for the connection in seconds.
+            proxy (Union[ProxyConfig, None]): The proxy configuration to use.
             verify_ssl (bool): Whether to verify SSL certificates.
 
         Returns:
-            Tuple[Optional[bytes], Optional[bytes]]: The response headers and body.
+            Tuple[Union[bytes, None], Union[bytes, None]]: The response headers and body.
 
         Raises:
             RuntimeError: If there's an error during the request or response processing.
@@ -127,7 +132,7 @@ class RawHTTPClient:
             raise RuntimeError(f"Connection error to {host}:{port}: {e}")
 
     @staticmethod
-    def _prepare_request(request: Union[str, bytes], host: str, port: int, path: Optional[str], update_host: bool, update_content_length: bool) -> Tuple[bytes, bytes]:
+    def _prepare_request(request: Union[str, bytes], host: str, port: int, path: Union[str, None], update_host: bool, update_content_length: bool) -> Tuple[bytes, bytes]:
         """
         Prepare the HTTP request by updating headers if necessary.
 
@@ -140,7 +145,7 @@ class RawHTTPClient:
             request (Union[str, bytes]): The raw HTTP request.
             host (str): The target host.
             port (int): The target port.
-            path (Optional[str]): The new path to set in the request.
+            path (Union[str, None]): The new path to set in the request.
             update_host (bool): Whether to update the Host header.
             update_content_length (bool): Whether to update the Content-Length header.
 
@@ -264,7 +269,7 @@ class RawHTTPClient:
             raise RuntimeError(f"DNS resolution error for {hostname}: {e}")
 
     @staticmethod
-    def _create_connection(ip_address: str, port: int, timeout: float, local_ip: Optional[str], proxy: Optional[ProxyConfig]) -> socket.socket:
+    def _create_connection(ip_address: str, port: int, timeout: float, local_ip: Union[str, None], proxy: Union[ProxyConfig, None]) -> socket.socket:
         """
         Create a socket connection, either directly or through a proxy.
 
@@ -272,8 +277,8 @@ class RawHTTPClient:
             ip_address (str): The IP address to connect to.
             port (int): The port to connect to.
             timeout (float): The connection timeout.
-            local_ip (Optional[str]): The local IP to bind to.
-            proxy (Optional[ProxyConfig]): The proxy configuration to use.
+            local_ip (Union[str, None]): The local IP to bind to.
+            proxy (Union[ProxyConfig, None]): The proxy configuration to use.
 
         Returns:
             socket.socket: The connected socket.
@@ -298,7 +303,7 @@ class RawHTTPClient:
 
     @contextmanager
     @staticmethod
-    def _create_ssl_context(p12_file: str, p12_password: str, verify_ssl: bool = True):
+    def _create_ssl_context(p12_file: Union[str, None], p12_password: Union[str, None], verify_ssl: bool = True) -> ssl.SSLContext:
         """
         Create an SSL context, optionally using a .p12 file for client authentication.
 
@@ -306,8 +311,8 @@ class RawHTTPClient:
         used for SSL context creation.
 
         Args:
-            p12_file (str): Path to the .p12 file.
-            p12_password (str): Password for the .p12 file.
+            p12_file (Union[str, None]): Path to the .p12 file.
+            p12_password (Union[str, None]): Password for the .p12 file.
             verify_ssl (bool): Whether to verify SSL certificates.
 
         Yields:
@@ -360,13 +365,13 @@ class RawHTTPClient:
                     pass
 
     @staticmethod
-    def _convert_p12_to_pem(p12_file: str, p12_password: str) -> Tuple[bytes, bytes, bytes]:
+    def _convert_p12_to_pem(p12_file: str, p12_password: Union[str, None]) -> Tuple[bytes, bytes, bytes]:
         """
         Convert a .p12 file to PEM format.
 
         Args:
             p12_file (str): Path to the .p12 file.
-            p12_password (str): Password for the .p12 file.
+            p12_password (Union[str, None]): Password for the .p12 file.
 
         Returns:
             Tuple[bytes, bytes, bytes]: The certificate, private key, and CA certificates in PEM format.
@@ -379,7 +384,7 @@ class RawHTTPClient:
             with open(p12_file, 'rb') as f:
                 p12_data = f.read()
 
-            private_key, certificate, additional_certificates = pkcs12.load_key_and_certificates(p12_data, p12_password.encode())
+            private_key, certificate, additional_certificates = pkcs12.load_key_and_certificates(p12_data, p12_password.encode() if p12_password else None)
 
             cert = certificate.public_bytes(Encoding.PEM)
             key = private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
@@ -392,7 +397,7 @@ class RawHTTPClient:
             raise RuntimeError(f"Error loading .p12 file: {e}")
 
     @staticmethod
-    def _send_and_receive(sock: socket.socket, headers: bytes, body: bytes, host: str, port: int) -> Tuple[Optional[bytes], Optional[bytes]]:
+    def _send_and_receive(sock: socket.socket, headers: bytes, body: bytes, host: str, port: int) -> Tuple[Union[bytes, None], Union[bytes, None]]:
         """
         Send the HTTP request and receive the response.
 
@@ -404,7 +409,7 @@ class RawHTTPClient:
             port (int): The target port (for logging purposes).
 
         Returns:
-            Tuple[Optional[bytes], Optional[bytes]]: The response headers and body.
+            Tuple[Union[bytes, None], Union[bytes, None]]: The response headers and body.
 
         Raises:
             RuntimeError: If there's an error receiving the response.
@@ -437,7 +442,7 @@ class RawHTTPClient:
         """
         response = bytearray()
         while True:
-            part = sock.recv(4096)
+            part = sock.recv(CHUNK_SIZE)
             if not part:
                 break
             response += part
@@ -448,14 +453,14 @@ class RawHTTPClient:
                 if content_length:
                     # Known content length, read exact number of bytes
                     while len(body) < content_length:
-                        body += sock.recv(4096)
+                        body += sock.recv(CHUNK_SIZE)
                 elif transfer_encoding == 'chunked':
                     # Chunked encoding, use special method to receive
                     body = RawHTTPClient._receive_chunked_body(sock, body)
                 elif connection == 'close':
                     # Read until connection is closed
                     while True:
-                        chunk = sock.recv(4096)
+                        chunk = sock.recv(CHUNK_SIZE)
                         if not chunk:
                             break
                         body += chunk
@@ -466,10 +471,10 @@ class RawHTTPClient:
                     # therefore not return if the server has no more data.
                     # Read with a short timeout and then stop
                     timeout = sock.timeout
-                    sock.settimeout(1.0)  # Set a short timeout
+                    sock.settimeout(SHORT_TIMEOUT)
                     try:
                         while True:
-                            chunk = sock.recv(4096)
+                            chunk = sock.recv(CHUNK_SIZE)
                             if not chunk:
                                 break
                             body += chunk
@@ -511,10 +516,10 @@ class RawHTTPClient:
 
         while True:
             if len(buffer) < 5:  # 5 Bytes must be there in chunked encoding: 0\r\n\r\n
-                new_data = sock.recv(4096)
+                new_data = sock.recv(CHUNK_SIZE)
                 if not new_data:
                     raise RuntimeError("Connection closed while reading chunked body")
-                buffer.extend(new_data)
+                buffer += new_data
             
             if b'\r\n' not in buffer:
                 raise RuntimeError("Invalid chunk size: missing CRLF")
@@ -531,13 +536,13 @@ class RawHTTPClient:
 
                 total_required = chunk_size + 2  # +2 for trailing \r\n
                 while len(buffer) < total_required:
-                    to_read = max(total_required - len(buffer), 4096)
+                    to_read = max(total_required - len(buffer), CHUNK_SIZE)
                     new_data = sock.recv(to_read)
                     if not new_data:
                         raise RuntimeError("Connection closed while reading chunk")
-                    buffer.extend(new_data)
+                    buffer += new_data
 
-                decoded_body.extend(buffer[:chunk_size])
+                decoded_body += buffer[:chunk_size]
                 buffer = buffer[total_required:]  # Remove chunk and trailing \r\n
 
             except ValueError as e:
@@ -549,7 +554,7 @@ class RawHTTPClient:
         return bytes(decoded_body)
 
     @staticmethod
-    def _parse_headers(headers: bytes) -> Tuple[Optional[int], Optional[str], Optional[str], str]:
+    def _parse_headers(headers: bytes) -> Tuple[Union[int, None], Union[str, None], Union[str, None], str]:
         """
         Parse HTTP response headers to extract key information.
 
@@ -564,7 +569,7 @@ class RawHTTPClient:
             headers (bytes): The raw HTTP headers.
 
         Returns:
-            Tuple[Optional[int], Optional[str], Optional[str], str]: 
+            Tuple[Union[int, None], Union[str, None], Union[str, None], str]: 
             Content-Length, Content-Encoding, Transfer-Encoding, and Connection type.
         """
         content_length = None
@@ -609,9 +614,9 @@ class RawHTTPClient:
             RuntimeError: If there's an error during decompression.
         """
         try:
-            if encoding == 'gzip':
+            if encoding.lower() == 'gzip':
                 return gzip.decompress(response)
-            elif encoding == 'deflate':
+            elif encoding.lower() == 'deflate':
                 return zlib.decompress(response)
             return response
         except Exception as e:
